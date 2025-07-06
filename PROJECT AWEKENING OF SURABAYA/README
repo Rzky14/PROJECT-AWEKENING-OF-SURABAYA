@@ -1,0 +1,68 @@
+PANDUAN BERMAIN DAN MENGGUNAKAN GAME "THE AWAKENING OF SURABAYA"
+
+"The Awakening of Surabaya" adalah sebuah game berbasis cerita yang mengintegrasikan aspek edukasi dan hiburan, mengajak pemain menyelami sejarah Pertempuran Surabaya melalui tiga minigame yang saling terhubung. 
+
+========================================================================
+I. MEMULAI GAME
+========================================================================
+
+1.  PELUNCURAN APLIKASI
+    Jalankan aplikasi game "The Awakening of Surabaya".
+
+2.  MENU UTAMA
+    Anda akan disuguhkan tampilan menu utama dengan beberapa pilihan: 
+    * MULAI: Memulai permainan. 
+        Setelah menekan tombol ini, akan muncul dialog untuk memilih mode permainan: "Permainan Baru" atau "Lanjutkan". 
+        * Permainan Baru: Memulai game dari awal, mereset semua progres sebelumnya. 
+        * Lanjutkan: Memungkinkan pemain melanjutkan permainan yang telah disimpan sebelumnya.  Jika belum ada progres tersimpan, akan muncul pesan notifikasi. 
+    * DESKRIPSI: Menampilkan informasi singkat tentang game, termasuk tujuan permainan dan latar belakang sejarah Pertempuran Surabaya. 
+    * KELUAR: Mengakhiri aplikasi secara langsung. 
+
+========================================================================
+II. ALUR PERMAINAN (GAMEPLAY)
+========================================================================
+
+Game ini menggabungkan narasi 2D dan minigame untuk menceritakan kembali peristiwa Pertempuran Surabaya 10 November 1945.  Alur utama permainan terbagi menjadi beberapa tahapan:
+
+1.  STORY MODE (NARASI AWAL)
+    Setelah memilih "Permainan Baru" atau "Lanjutkan", Anda akan dibawa ke tampilan narasi cerita yang menjelaskan      perjuangan rakyat Surabaya.  Teks akan muncul secara bertahap. Anda dapat menekan tombol "Spasi" untuk melanjutkan narasi ke gambar cerita berikutnya. 
+
+2.  HALAMAN MAPS
+    Setelah narasi awal, Anda akan melihat tampilan peta Surabaya.  Peta ini menampilkan ikon pesawat di kiri atas untuk nuansa perjalanan, dan titik awal yang sudah dibuka di tengah peta.  Titik terkunci ditandai dengan gambar gembok, menunjukkan level atau minigame belum dapat diakses. 
+    * Setiap jalur yang terhubung akan terbuka ketika pemain menyelesaikan level atau minigame yang ada. 
+    * Tombol "Rumah" (ikon rumah di kiri bawah) mengarahkan pemain kembali ke menu utama permainan. 
+
+3.  MINIGAME 1: PELARIAN DARI KEJARAN PENJAJAH (Konsep Pac-Man)
+    * Tujuan: Pemain harus menghindari kejaran penjajah dan mengumpulkan minimal 1 item radio untuk keluar. 
+    * Kontrol: Gerakkan karakter utama menggunakan tombol arah atau WASD. 
+    * Mekanisme: Musuh akan mengejar pemain.  Jika pemain tertangkap, akan muncul tampilan "Game Over" dengan opsi "RESTART" untuk mengulang minigame ini.  Setelah mengumpulkan radio dan mencapai titik keluar (Finish), Anda akan melanjutkan ke minigame berikutnya. 
+
+4.  MINIGAME 2: PERTEMPURAN DI JEMBATAN MERAH (Top-Down Shooter)
+    * Tujuan: Pemain dapat melawan penjajah menggunakan senjata dan harus menyelesaikan level untuk melanjutkan ke tahap berikutnya. 
+    * Kontrol: Karakter pemain dapat bergerak ke segala arah dan menyerang musuh dengan tombol aksi (misalnya  Spasi). 
+    * Mekanisme: Pemain memiliki Health Bar (HP) yang akan berkurang jika terkena serangan musuh.  Kalahkan jumlah musuh yang ditentukan agar jalur keluar terbuka.  Jika HP pemain habis, layar "Game Over" akan muncul dengan opsi "RESTART". 
+
+5.  MINIGAME 3: PERTEMPURAN MELAWAN BOS (Side-Scrolling Platformer)
+    * Tujuan: Pemain berperang langsung melawan penjajah dan bos terakhir, dengan tujuan untuk menyelesaikan tahap akhir dan menancapkan bendera Indonesia. 
+    * Kontrol: Digerakkan dengan tombol arah atau WASD dan menyerang menggunakan tombol aksi seperti Spasi.  Melompat menggunakan tombol "W" atau panah atas.
+    * Mekanisme: Musuh awal harus dikalahkan sebelum bos muncul.  Bos memiliki HP tinggi, serangan lebih kuat, dan pola pergerakan khusus.  Pemain memiliki peluru terbatas yang bisa diisi ulang.  Setelah bos dikalahkan, akan muncul cutscene penancapan bendera Indonesia.  Jika pemain kalah, layar "Game Over" akan muncul dengan tombol "Restart". 
+
+========================================================================
+III. FITUR LAINNYA
+========================================================================
+
+* LEVEL KESULITAN BERTAHAP: Game dirancang dengan level yang semakin sulit seiring perkembangan cerita, memberikan tantangan yang beragam. 
+* PETUNJUK SEJARAH: Fitur untuk memberikan penjelasan singkat atau definisi dari elemen-elemen sejarah yang relevan dalam game.  Ini akan ditemukan di "Halaman Deskripsi". 
+* ESTETIKA PIXEL ART: Grafis game menggunakan gaya pixel art yang khas, menggambarkan suasana perjuangan Surabaya dengan detail yang sesuai tema sejarah. 
+* EFEK SUARA DAN MUSIK TEMATIK: Game ini dilengkapi dengan musik latar yang membangkitkan semangat perjuangan dan efek suara untuk memperkaya atmosfer permainan.  Musik latar akan berubah sesuai dengan tampilan atau minigame yang sedang dimainkan. 
+* PENGELOLAAN DATA: Progres level dan status minigame disimpan menggunakan BufferedWriter ke file teks (save.dat), memungkinkan Anda untuk melanjutkan dari posisi terakhir. 
+* HALAMAN TAMAT GAME: Merupakan tampilan akhir yang muncul setelah pemain berhasil mengalahkan bos utama pada MiniGame3, berfungsi sebagai penutup permainan dan apresiasi keberhasilan pemain, disertai cutscene dan pesan nasionalisme. 
+
+========================================================================
+IV. MENGATASI MASALAH
+========================================================================
+
+* GAME OVER: Jika Anda kalah dalam minigame (HP habis atau tertangkap), opsi "RESTART" akan muncul untuk mencoba kembali minigame tersebut tanpa harus kembali ke menu utama. 
+* PROGRES TERSIMPAN: Jika game tertutup secara tidak sengaja, Anda dapat menggunakan tombol "Lanjutkan" di menu utama untuk kembali ke progres terakhir yang disimpan. 
+
+Selamat bermain dan belajar sejarah dengan "The Awakening of Surabaya"!
