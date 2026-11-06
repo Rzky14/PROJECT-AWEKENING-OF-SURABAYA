@@ -52,6 +52,9 @@ public class GamePanel3 extends JPanel implements KeyListener, MouseListener {
 
     private Runnable onWin;
 
+    // Bertambah setiap restart agar timer transisi dari permainan sebelumnya berhenti sendiri
+    private int gameGeneration = 0;
+
     public GamePanel3() {
         setFocusable(true);
         setPreferredSize(new Dimension(1280, 720));
@@ -223,6 +226,7 @@ public class GamePanel3 extends JPanel implements KeyListener, MouseListener {
     }
 
     public void startStageTransition(String message) {
+        final int generation = gameGeneration;
         transitionText = message;
         showTransitionText = true;
         transitionTextTimer = 90;
@@ -233,6 +237,10 @@ public class GamePanel3 extends JPanel implements KeyListener, MouseListener {
         final int[] localTimer = {0};
 
         transitionTimer.addActionListener(e -> {
+            if (generation != gameGeneration) {
+                transitionTimer.stop();
+                return;
+            }
             if (fadingIn) {
                 transitionAlpha += 0.02f;
                 if (transitionAlpha >= 1.0f) {
@@ -257,9 +265,11 @@ public class GamePanel3 extends JPanel implements KeyListener, MouseListener {
                     case 1 -> {
                         stage = 2;
                         new Timer(1000, evt -> {
-                            spawnEnemiesForStage(stage);
-                            showTransitionText = false;
                             ((Timer) evt.getSource()).stop();
+                            if (generation == gameGeneration) {
+                                spawnEnemiesForStage(stage);
+                                showTransitionText = false;
+                            }
                         }).start();
                     }
                     case 2 -> {
@@ -473,6 +483,7 @@ public class GamePanel3 extends JPanel implements KeyListener, MouseListener {
     }
 
     public void resetGame() {
+        gameGeneration++;
         runningGame = true;
         player.reset();
         enemies.clear();

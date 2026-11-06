@@ -347,7 +347,7 @@ public class GamePanel2 extends JPanel implements ActionListener, KeyListener {
             nextButton.setOpaque(true);
 
             // Border coklat tua
-            setBorder(BorderFactory.createLineBorder(Color.BLACK, 2)); // Border: hitam
+            nextButton.setBorder(BorderFactory.createLineBorder(Color.BLACK, 2)); // Border: hitam
 
             // Efek hover: lebih terang saat kursor masuk
             nextButton.addMouseListener(new MouseAdapter() {

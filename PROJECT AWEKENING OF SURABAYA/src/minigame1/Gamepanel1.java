@@ -301,6 +301,10 @@ public class Gamepanel1 extends JPanel implements KeyListener, ActionListener {
     private void generateRandomRadiox(int count) {
         radiox.clear();
 
+        // Radio tidak boleh muncul di titik awal pemain maupun di titik finish
+        Block startTile = new Block(null, 0, finishY, tileSize, tileSize);
+        Block finishTile = new Block(null, finishX, finishY, tileSize, tileSize);
+
         int tries = 0;
         while (radiox.size() < count && tries < 1000) {
             int c = random.nextInt(columnCount);
@@ -317,6 +321,11 @@ public class Gamepanel1 extends JPanel implements KeyListener, ActionListener {
                     valid = false;
                     break;
                 }
+            }
+
+            // Cek titik awal pemain dan titik finish
+            if (Block.collision(radioBlock, startTile) || Block.collision(radioBlock, finishTile)) {
+                valid = false;
             }
 
             // Cek tabrakan dengan player
@@ -655,6 +664,9 @@ public class Gamepanel1 extends JPanel implements KeyListener, ActionListener {
                     || enemy.y <= 0 || enemy.y + enemy.height >= boardHeight) {
                 enemy.x -= enemy.velocityX;
                 enemy.y -= enemy.velocityY;
+                // Rapatkan ke grid supaya musuh bisa berbelok di persimpangan
+                enemy.x = Math.round((float) enemy.x / tileSize) * tileSize;
+                enemy.y = Math.round((float) enemy.y / tileSize) * tileSize;
                 enemy.updateDirection(directions[random.nextInt(directions.length)]);
             }
         }
@@ -751,8 +763,9 @@ public class Gamepanel1 extends JPanel implements KeyListener, ActionListener {
 
     private void resetPositions() {
         if (player != null) {
+            // Mulai tepat di lorong keluar-masuk (baris titik finish) agar sejajar dengan dinding
             player.x = 0;
-            player.y = (frameHeight / 2) - (player.height / 2);
+            player.y = finishY;
             player.velocityX = 0;
             player.velocityY = 0;
         }
