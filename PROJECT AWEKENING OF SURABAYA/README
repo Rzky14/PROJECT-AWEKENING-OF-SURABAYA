@@ -34,18 +34,18 @@ Game ini menggabungkan narasi 2D dan minigame untuk menceritakan kembali peristi
 
 3.  MINIGAME 1: PELARIAN DARI KEJARAN PENJAJAH (Konsep Pac-Man)
     * Tujuan: Pemain harus menghindari kejaran penjajah dan mengumpulkan minimal 1 item radio untuk keluar. 
-    * Kontrol: Gerakkan karakter utama menggunakan tombol arah atau WASD. 
+    * Kontrol: Gerakkan karakter utama menggunakan tombol arah atau WASD. Pemain memiliki 3 nyawa; setelah tertangkap, pemain kembali ke titik awal dengan kebal singkat. 
     * Mekanisme: Musuh akan mengejar pemain.  Jika pemain tertangkap, akan muncul tampilan "Game Over" dengan opsi "RESTART" untuk mengulang minigame ini.  Setelah mengumpulkan radio dan mencapai titik keluar (Finish), Anda akan melanjutkan ke minigame berikutnya. 
 
 4.  MINIGAME 2: PERTEMPURAN DI JEMBATAN MERAH (Top-Down Shooter)
     * Tujuan: Pemain dapat melawan penjajah menggunakan senjata dan harus menyelesaikan level untuk melanjutkan ke tahap berikutnya. 
-    * Kontrol: Karakter pemain dapat bergerak ke segala arah dan menyerang musuh dengan tombol aksi (misalnya  Spasi). 
-    * Mekanisme: Pemain memiliki Health Bar (HP) yang akan berkurang jika terkena serangan musuh.  Kalahkan jumlah musuh yang ditentukan agar jalur keluar terbuka.  Jika HP pemain habis, layar "Game Over" akan muncul dengan opsi "RESTART". 
+    * Kontrol: Karakter pemain bergerak dengan WASD atau tombol arah dan menyerang dengan klik kiri atau Spasi. 
+    * Mekanisme: Pemain memiliki Health Bar (HP) yang akan berkurang jika terkena serangan musuh.  Kalahkan 8 musuh dalam tiga gelombang dengan tingkat kesulitan yang meningkat agar jalur keluar terbuka.  Jika HP pemain habis, layar "Game Over" akan muncul dengan opsi "RESTART". 
 
 5.  MINIGAME 3: PERTEMPURAN MELAWAN BOS (Side-Scrolling Platformer)
     * Tujuan: Pemain berperang langsung melawan penjajah dan bos terakhir, dengan tujuan untuk menyelesaikan tahap akhir dan menancapkan bendera Indonesia. 
-    * Kontrol: Digerakkan dengan tombol arah atau WASD dan menyerang menggunakan tombol aksi seperti Spasi.  Melompat menggunakan tombol "W" atau panah atas.
-    * Mekanisme: Musuh awal harus dikalahkan sebelum bos muncul.  Bos memiliki HP tinggi, serangan lebih kuat, dan pola pergerakan khusus.  Pemain memiliki peluru terbatas yang bisa diisi ulang.  Setelah bos dikalahkan, akan muncul cutscene penancapan bendera Indonesia.  Jika pemain kalah, layar "Game Over" akan muncul dengan tombol "Restart". 
+    * Kontrol: Digerakkan dengan tombol arah atau WASD dan menyerang menggunakan tombol aksi seperti Spasi.  Melompat menggunakan tombol "W" atau panah atas, dan mengisi ulang peluru dengan tombol "R".
+    * Mekanisme: Musuh awal harus dikalahkan sebelum bos muncul.  Bos memiliki HP tinggi, serangan lebih kuat, dan pola pergerakan khusus.  Pemain memiliki 10 peluru per magasin yang bisa diisi ulang.  Musuh memberi isyarat sebelum menyerang: peluru merah dihindari dengan melompat, peluru kuning dihindari dengan tetap di tanah.  Setelah bos dikalahkan, akan muncul cutscene penancapan bendera Indonesia.  Jika pemain kalah, layar "Game Over" akan muncul dengan tombol "Restart". 
 
 ========================================================================
 III. FITUR LAINNYA
