@@ -1,7 +1,7 @@
 package minigame3;
 
 import java.awt.*;
-import javax.swing.ImageIcon;
+import util.Assets;
 
 public class Bullet {
 
@@ -11,14 +11,7 @@ public class Bullet {
     public final int width = 20;
     public final int height = 20;
 
-    private static final Image bulletImage;
-
-    // Static block: hanya dilakukan sekali untuk seluruh instance Bullet
-    static {
-        bulletImage = new ImageIcon("asset/bullet/peluru.png")
-                .getImage()
-                .getScaledInstance(20, 20, Image.SCALE_SMOOTH);
-    }
+    private static final Image bulletImage = Assets.image("asset/bullet/peluru.png", 20, 20);
 
     public Bullet(int startX, int startY, int speed) {
         this.x = startX;
