@@ -212,7 +212,9 @@ public class SoundPlayer {
             Clip clip = AudioSystem.getClip();
             clip.open(audioIn);
             return clip;
-        } catch (UnsupportedAudioFileException | IOException | LineUnavailableException e) {
+        } catch (UnsupportedAudioFileException | IOException | LineUnavailableException
+                | IllegalArgumentException | SecurityException e) {
+            // IllegalArgumentException: tidak ada perangkat audio (mis. speaker dinonaktifkan) -> game tetap jalan tanpa suara
             System.err.println("Gagal load suara: " + path + " → " + e.getMessage());
             return null;
         }

@@ -18,10 +18,10 @@ public class Player3 {
 
     private static final int PLAYER_WIDTH = 140;
     private static final int PLAYER_HEIGHT = 160;
-    private static final Image idleImage = loadImage("asset/player/Player1.png");
-    private static final Image jumpImage = loadImage("asset/player/PlayerLoncat.png");
-    private static final Image image1 = loadImage("asset/player/Player1.png");
-    private static final Image image2 = loadImage("asset/player/Player2.png");
+    private static final Image idleImage = loadImage("asset/player/player1.png");
+    private static final Image jumpImage = loadImage("asset/player/playerloncat.png");
+    private static final Image image1 = loadImage("asset/player/player1.png");
+    private static final Image image2 = loadImage("asset/player/player2.png");
 
     private static final Image[] walkRightImages = new Image[]{
         image2, image1, image2, image1, image2, image1

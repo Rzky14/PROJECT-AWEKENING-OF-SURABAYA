@@ -200,27 +200,27 @@ public class Gamepanel1 extends JPanel implements KeyListener, ActionListener {
 
         enemy1UpImage = new ImageIcon("asset/enemy/Belakang.png").getImage();
         enemy1DownImage = new ImageIcon("asset/enemy/Depan.png").getImage();
-        enemy1RightImage = new ImageIcon("asset/enemy/Samping kanan.png").getImage();
-        enemy1LeftImage = new ImageIcon("asset/enemy/Samping kiri.png").getImage();
+        enemy1RightImage = new ImageIcon("asset/enemy/Samping Kanan.png").getImage();
+        enemy1LeftImage = new ImageIcon("asset/enemy/Samping Kiri.png").getImage();
 
         enemy2UpImage = new ImageIcon("asset/enemy/Belakang.png").getImage();
         enemy2DownImage = new ImageIcon("asset/enemy/Depan.png").getImage();
-        enemy2RightImage = new ImageIcon("asset/enemy/Samping kanan.png").getImage();
-        enemy2LeftImage = new ImageIcon("asset/enemy/Samping kiri.png").getImage();
+        enemy2RightImage = new ImageIcon("asset/enemy/Samping Kanan.png").getImage();
+        enemy2LeftImage = new ImageIcon("asset/enemy/Samping Kiri.png").getImage();
 
         enemy3UpImage = new ImageIcon("asset/enemy/Belakang.png").getImage();
         enemy3DownImage = new ImageIcon("asset/enemy/Depan.png").getImage();
-        enemy3RightImage = new ImageIcon("asset/enemy/Samping kanan.png").getImage();
-        enemy3LeftImage = new ImageIcon("asset/enemy/Samping kiri.png").getImage();
+        enemy3RightImage = new ImageIcon("asset/enemy/Samping Kanan.png").getImage();
+        enemy3LeftImage = new ImageIcon("asset/enemy/Samping Kiri.png").getImage();
 
         enemy4UpImage = new ImageIcon("asset/enemy/Belakang.png").getImage();
         enemy4DownImage = new ImageIcon("asset/enemy/Depan.png").getImage();
-        enemy4RightImage = new ImageIcon("asset/enemy/Samping kanan.png").getImage();
-        enemy4LeftImage = new ImageIcon("asset/enemy/Samping kiri.png").getImage();
+        enemy4RightImage = new ImageIcon("asset/enemy/Samping Kanan.png").getImage();
+        enemy4LeftImage = new ImageIcon("asset/enemy/Samping Kiri.png").getImage();
 
         playerUpImage = new ImageIcon("asset/player/Belakang.png").getImage();
         playerDownImage = new ImageIcon("asset/player/Depan.png").getImage();
-        playerLeftImage = new ImageIcon("asset/player/Samping Kiri.png").getImage();
+        playerLeftImage = new ImageIcon("asset/player/Samping kiri.png").getImage();
         playerRightImage = new ImageIcon("asset/player/Samping Kanan.png").getImage();
 
         backgroundImage = new ImageIcon("asset/background/BGMinigame1.png").getImage();
