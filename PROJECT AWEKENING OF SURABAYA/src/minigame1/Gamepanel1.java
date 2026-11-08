@@ -3,11 +3,23 @@ package minigame1;
 import audio.SoundPlayer;
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.geom.Path2D;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Random;
 import javax.swing.*;
+import util.Assets;
+import util.FixedStep;
 
 public class Gamepanel1 extends JPanel implements KeyListener, ActionListener {
+
+    private enum State {
+        INTRO, PLAYING, ESCAPING, MISSION_TEXT, WON, GAME_OVER
+    }
+
     // Frame dan Papan Permainan
     private final int frameWidth = 1280;
     private final int frameHeight = 720;
@@ -21,84 +33,104 @@ public class Gamepanel1 extends JPanel implements KeyListener, ActionListener {
     private final SoundPlayer soundPlayer = SoundPlayer.getInstance();
     private static final String SOUND_CLICK = "asset/sounds/click.wav";
 
-    // Timer dan Random
+    // Pengaturan permainan
+    private static final int TURN_ASSIST = 16;            // toleransi (px) saat berbelok di persimpangan
+    private static final int RADIO_COUNT = 3;
+    private static final int INVULNERABLE_FRAMES = 150;   // kebal singkat setelah tertangkap
+    private static final int DANGER_RANGE = 128;          // jarak (px) musuh mulai memberi peringatan
+
+    // Waktu: pembaruan tetap 60 kali per detik
     private final Timer gameLoop;
+    private final FixedStep clock = new FixedStep();
     private final Random random = new Random();
+    private int frame = 0;
 
     // Koleksi dan Entitas
     private HashSet<Block> walls;
-    private HashSet<Block> radiox;
+    private boolean[][] wallGrid;
+    private final List<Block> radiox = new ArrayList<>();
     private HashSet<Enemy1> enemies;
     private Player1 player;
 
     // Tombol dan Transisi
-    private JButton restartButton;
+    private final JButton restartButton;
     private final JButton nextButton;
     private Runnable onWin;
     private final Runnable onNext;
-    private boolean startedBrightTransition = false;
-    private boolean isTransitioningToBright = false;
     private float overlayAlpha = 1.0f;
+
+    // Status Game
+    private State state = State.INTRO;
+    private int radio = 0;
+    private int notificationAlpha = 0;
+    private boolean playerStarted = false;   // musuh baru keluar setelah pemain mulai bergerak
+    private int enemyClock = 0;
+    private int invulnerable = 0;
+    private char playerFacing = 'R';
+    private float danger = 0f;
 
     // Pesan Awal Game
     private final String startMessage = "Lari Dari Kejaran Dan Dapatkan Minimal 1 Radio Untuk Keluar";
     private String displayedStartMessage = "";
     private int startMessageIndex = 0;
-    private boolean isShowingStartMessage = true;
-    private final int startMessageDelay = 1; // jumlah frame delay sebelum tambah karakter
-    private int startMessageDelayCounter = 0;
-    private int messageDisplayHoldCounter = 0;  // penahan setelah pesan selesai
-    private final int messageDisplayHoldFrames = 30;
+    private int startMessageTick = 0;
+    private int messageHoldCounter = 0;
+    private final int messageHoldFrames = 90;
 
-    // Status Game
-    private boolean showGameOverScreen = false;
-    private boolean missionComplete = false;
-    private int radio = 0;
-    private int notificationAlpha = 0;
+    // Umpan balik visual
+    private String bannerText = "";
+    private int bannerTimer = 0;
+    private int bannerDuration = 1;
+    private int hitFlash = 0;
+    private int exitHintCooldown = 0;
+    private final List<FloatingText> floatingTexts = new ArrayList<>();
 
-    // Auto Walk
-    private boolean isAutoWalking = false;
-    private final int autoWalkDistance = 370; // jarak auto walk dalam pixel
+    // Auto Walk (adegan keluar)
+    private final int autoWalkDistance = 370;
+    private final int autoWalkSpeed = 3;
     private int autoWalkProgress = 0;
-    private final int autoWalkSpeed = 6; // kecepatan auto walk (pixel/frame)
-
-    // Transisi Teks Misi Selesai
-    private boolean isMissionTextFadingIn = false;
 
     // Titik Finish
-    private int finishX; // posisi X titik F
-    private int finishY; // posisi Y titik F
+    private int finishX;
+    private int finishY;
 
-    // Arah
-    private final char[] directions = {'U', 'D', 'L', 'R'};
+    // Kontrol: arah yang sedang ditahan, yang terakhir ditekan diprioritaskan
+    private final LinkedList<Character> heldDirs = new LinkedList<>();
 
     // Gambar / Assets
     private Image wallImage;
     private Image mapsImage;
     private Image building1Image;
     private Image buildingImage;
-    private Image RadioImage;
+    private Image radioImage;
     private Image playerUpImage;
     private Image playerDownImage;
     private Image playerLeftImage;
     private Image playerRightImage;
     private Image backgroundImage;
-    private Image enemy1UpImage;
-    private Image enemy1RightImage;
-    private Image enemy1DownImage;
-    private Image enemy1LeftImage;
-    private Image enemy2UpImage;
-    private Image enemy2RightImage;
-    private Image enemy2DownImage;
-    private Image enemy2LeftImage;
-    private Image enemy3UpImage;
-    private Image enemy3RightImage;
-    private Image enemy3DownImage;
-    private Image enemy3LeftImage;
-    private Image enemy4UpImage;
-    private Image enemy4RightImage;
-    private Image enemy4DownImage;
-    private Image enemy4LeftImage;
+    private Image enemyUpImage;
+    private Image enemyRightImage;
+    private Image enemyDownImage;
+    private Image enemyLeftImage;
+
+    private static class FloatingText {
+
+        final String text;
+        final Color color;
+        float x;
+        float y;
+        int life;
+        final int maxLife;
+
+        FloatingText(String text, float x, float y, Color color, int life) {
+            this.text = text;
+            this.x = x;
+            this.y = y;
+            this.color = color;
+            this.life = life;
+            this.maxLife = life;
+        }
+    }
 
     public Gamepanel1(Runnable onNext) {
         soundPlayer.preloadSound(SOUND_CLICK);
@@ -106,74 +138,26 @@ public class Gamepanel1 extends JPanel implements KeyListener, ActionListener {
         setPreferredSize(new Dimension(frameWidth, frameHeight));
         setFocusable(true);
         setLayout(null);
-
-        loadResources();
-        loadMap();
-        resetPositions();
-        restartButton = new JButton("RESTART");
-        restartButton.setBounds(frameWidth / 2 - 75, frameHeight / 2 + 40, 150, 40);
-        restartButton.setFont(new Font("Arial", Font.BOLD, 18));
-        restartButton.setBackground(new Color(210, 180, 140)); // Warna dasar: Tan (coklat muda)
-        restartButton.setForeground(Color.BLACK); // Teks hitam agar kontras
-        restartButton.setFocusPainted(false);
-        restartButton.setOpaque(true);
-        restartButton.setBorder(BorderFactory.createLineBorder(Color.BLACK, 2)); // Border: hitam
-
-// Efek hover agar tombol terasa hidup
-        restartButton.addMouseListener(new MouseAdapter() {
+        addKeyListener(this);
+        addFocusListener(new FocusAdapter() {
             @Override
-            public void mouseEntered(MouseEvent e) {
-                restartButton.setBackground(new Color(222, 184, 135)); // Burlywood
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e) {
-                restartButton.setBackground(new Color(210, 180, 140)); // Kembali ke Tan
+            public void focusLost(FocusEvent e) {
+                heldDirs.clear();
             }
         });
 
-        restartButton.setVisible(false); // Hanya tampil saat game over
+        loadResources();
+        loadMap();
+
+        restartButton = createButton("RESTART", frameWidth / 2 - 75, frameHeight / 2 + 40, 150, 40, Color.BLACK, 18);
         restartButton.addActionListener(e -> {
             soundPlayer.playSound(SOUND_CLICK);
-            restartGame();                  // Panggil method restart game
-            showGameOverScreen = false;
-            restartButton.setVisible(false);
+            restartGame();
             requestFocusInWindow();
         });
         add(restartButton);
 
-        nextButton = new JButton("NEXT");
-        nextButton.setBounds(frameWidth / 2 - 75, frameHeight / 2 + 80, 150, 40);
-
-        // Warna coklat muda dan teks hitam
-        nextButton.setBackground(new Color(210, 180, 140)); // Tan
-        nextButton.setForeground(Color.BLACK);
-        nextButton.setFocusPainted(false);
-
-        // Gaya font
-        nextButton.setFont(new Font("Arial", Font.BOLD, 16));
-
-        // Border melengkung
-        nextButton.setBorder(BorderFactory.createLineBorder(new Color(160, 82, 45), 2)); // Sienna
-
-        // Hilangkan background default
-        nextButton.setContentAreaFilled(true);
-        nextButton.setOpaque(true);
-
-        // Efek hover (ubah warna saat mouse masuk/keluar)
-        nextButton.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseEntered(java.awt.event.MouseEvent evt) {
-                nextButton.setBackground(new Color(222, 184, 135)); // Burlywood (lebih terang)
-            }
-
-            @Override
-            public void mouseExited(java.awt.event.MouseEvent evt) {
-                nextButton.setBackground(new Color(210, 180, 140)); // Tan (awal)
-            }
-        });
-
-        nextButton.setVisible(false);
+        nextButton = createButton("NEXT", frameWidth / 2 - 75, frameHeight / 2 + 80, 150, 40, new Color(160, 82, 45), 16);
         nextButton.addActionListener(e -> {
             soundPlayer.playSound(SOUND_CLICK);
             if (onNext != null) {
@@ -182,56 +166,82 @@ public class Gamepanel1 extends JPanel implements KeyListener, ActionListener {
         });
         add(nextButton);
 
-        SoundPlayer.getInstance().playBackgroundMusic("asset/sounds/Bs_Minigame1.wav"); // MODIFIED
-        gameLoop = new Timer(50, this);
+        SoundPlayer.getInstance().playBackgroundMusic("asset/sounds/Bs_Minigame1.wav");
+        gameLoop = new Timer(8, this);
+        clock.reset();
         gameLoop.start();
+    }
+
+    private JButton createButton(String text, int x, int y, int w, int h, Color border, int fontSize) {
+        final Color normal = new Color(210, 180, 140);     // Tan
+        final Color hover = new Color(222, 184, 135);      // Burlywood
+        JButton button = new JButton(text);
+        button.setBounds(x, y, w, h);
+        button.setFont(new Font("Arial", Font.BOLD, fontSize));
+        button.setBackground(normal);
+        button.setForeground(Color.BLACK);
+        button.setFocusPainted(false);
+        button.setContentAreaFilled(true);
+        button.setOpaque(true);
+        button.setBorder(BorderFactory.createLineBorder(border, 2));
+        button.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                button.setBackground(hover);
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                button.setBackground(normal);
+            }
+        });
+        button.setVisible(false);
+        return button;
     }
 
     @Override
     public void addNotify() {
         super.addNotify();
-        addKeyListener(this);
+        if (gameLoop != null && !gameLoop.isRunning() && state != State.WON && state != State.GAME_OVER) {
+            clock.reset();
+            gameLoop.start();
+        }
+    }
+
+    @Override
+    public void removeNotify() {
+        super.removeNotify();
+        if (gameLoop != null) {
+            gameLoop.stop();
+        }
+        player.stopMoving();
     }
 
     private void loadResources() {
-        wallImage = new ImageIcon("asset/Properti/Genteng.png").getImage();
-        buildingImage = new ImageIcon("asset/Properti/Genteng1.png").getImage();
-        building1Image = new ImageIcon("asset/Properti/Genteng2.png").getImage();
+        wallImage = Assets.image("asset/Properti/Genteng.png");
+        buildingImage = Assets.image("asset/Properti/Genteng1.png");
+        building1Image = Assets.image("asset/Properti/Genteng2.png");
 
-        enemy1UpImage = new ImageIcon("asset/enemy/Belakang.png").getImage();
-        enemy1DownImage = new ImageIcon("asset/enemy/Depan.png").getImage();
-        enemy1RightImage = new ImageIcon("asset/enemy/Samping Kanan.png").getImage();
-        enemy1LeftImage = new ImageIcon("asset/enemy/Samping Kiri.png").getImage();
+        enemyUpImage = Assets.image("asset/enemy/Belakang.png");
+        enemyDownImage = Assets.image("asset/enemy/Depan.png");
+        enemyRightImage = Assets.image("asset/enemy/Samping Kanan.png");
+        enemyLeftImage = Assets.image("asset/enemy/Samping Kiri.png");
 
-        enemy2UpImage = new ImageIcon("asset/enemy/Belakang.png").getImage();
-        enemy2DownImage = new ImageIcon("asset/enemy/Depan.png").getImage();
-        enemy2RightImage = new ImageIcon("asset/enemy/Samping Kanan.png").getImage();
-        enemy2LeftImage = new ImageIcon("asset/enemy/Samping Kiri.png").getImage();
+        playerUpImage = Assets.image("asset/player/Belakang.png");
+        playerDownImage = Assets.image("asset/player/Depan.png");
+        playerLeftImage = Assets.image("asset/player/Samping kiri.png");
+        playerRightImage = Assets.image("asset/player/Samping Kanan.png");
 
-        enemy3UpImage = new ImageIcon("asset/enemy/Belakang.png").getImage();
-        enemy3DownImage = new ImageIcon("asset/enemy/Depan.png").getImage();
-        enemy3RightImage = new ImageIcon("asset/enemy/Samping Kanan.png").getImage();
-        enemy3LeftImage = new ImageIcon("asset/enemy/Samping Kiri.png").getImage();
-
-        enemy4UpImage = new ImageIcon("asset/enemy/Belakang.png").getImage();
-        enemy4DownImage = new ImageIcon("asset/enemy/Depan.png").getImage();
-        enemy4RightImage = new ImageIcon("asset/enemy/Samping Kanan.png").getImage();
-        enemy4LeftImage = new ImageIcon("asset/enemy/Samping Kiri.png").getImage();
-
-        playerUpImage = new ImageIcon("asset/player/Belakang.png").getImage();
-        playerDownImage = new ImageIcon("asset/player/Depan.png").getImage();
-        playerLeftImage = new ImageIcon("asset/player/Samping kiri.png").getImage();
-        playerRightImage = new ImageIcon("asset/player/Samping Kanan.png").getImage();
-
-        backgroundImage = new ImageIcon("asset/background/BGMinigame1.png").getImage();
-        mapsImage = new ImageIcon("asset/Properti/Peta.png").getImage();
-        RadioImage = new ImageIcon("asset/Properti/Radio.png").getImage();
+        backgroundImage = Assets.image("asset/background/BGMinigame1.png", frameWidth, frameHeight);
+        mapsImage = Assets.image("asset/Properti/Peta.png");
+        radioImage = Assets.image("asset/Properti/Radio.png");
     }
 
     private void loadMap() {
         walls = new HashSet<>();
-        radiox = new HashSet<>();
         enemies = new HashSet<>();
+        wallGrid = new boolean[rowCount][columnCount];
+        radiox.clear();
 
         String[] tileMap = {
             "XXXXXXXXXXXXXXXXXXX",
@@ -243,8 +253,8 @@ public class Gamepanel1 extends JPanel implements KeyListener, ActionListener {
             "XXXXXX XX XX X BB X",
             "B      XX XX X YY X",
             "B BBBXXXXrXX X    X",
-            "B       bpo  X XXXX", // Added a space here
-            "XXXX X BBBBB X XXXX", // Added a space here
+            "B       bpo  X XXXX",
+            "XXXX X BBBBB X XXXX",
             "     B       B    F",
             "XXXX X YYYYY X XXXX",
             "X        X   X    X",
@@ -266,101 +276,491 @@ public class Gamepanel1 extends JPanel implements KeyListener, ActionListener {
                 int y = r * tileSize;
 
                 switch (tile) {
-                    case 'X' ->
+                    case 'X' -> {
                         walls.add(new Block(wallImage, x, y, tileSize, tileSize));
-                    case 'Y' ->
+                        wallGrid[r][c] = true;
+                    }
+                    case 'Y' -> {
                         walls.add(new Block(building1Image, x, y, tileSize, tileSize));
-                    case 'B' ->
+                        wallGrid[r][c] = true;
+                    }
+                    case 'B' -> {
                         walls.add(new Block(buildingImage, x, y, tileSize, tileSize));
+                        wallGrid[r][c] = true;
+                    }
                     case 'b' ->
-                        enemies.add(new Enemy1(enemy1UpImage, enemy1DownImage, enemy1LeftImage, enemy1RightImage,
-                                x, y, tileSize, tileSize, walls, tileSize));
+                        enemies.add(createEnemy(x, y, Enemy1.Role.CHASER, 30));
                     case 'o' ->
-                        enemies.add(new Enemy1(enemy2UpImage, enemy2DownImage, enemy2LeftImage, enemy2RightImage,
-                                x, y, tileSize, tileSize, walls, tileSize));
+                        enemies.add(createEnemy(x, y, Enemy1.Role.AMBUSHER, 120));
                     case 'd' ->
-                        enemies.add(new Enemy1(enemy3UpImage, enemy3DownImage, enemy3LeftImage, enemy3RightImage,
-                                x, y, tileSize, tileSize, walls, tileSize));
+                        enemies.add(createEnemy(x, y, Enemy1.Role.GUARD, 240));
                     case 'r' ->
-                        enemies.add(new Enemy1(enemy4UpImage, enemy4DownImage, enemy4LeftImage, enemy4RightImage,
-                                x, y, tileSize, tileSize, walls, tileSize));
+                        enemies.add(createEnemy(x, y, Enemy1.Role.FLANKER, 360));
                     case 'P' ->
                         player = new Player1(playerRightImage, x, y, tileSize, tileSize, walls, tileSize);
                     case 'F' -> {
                         finishX = x;
                         finishY = y;
                     }
-                    case ' ' ->
-                        radiox.add(new Block(RadioImage, x, y, tileSize, tileSize));
+                    default -> {
+                    }
                 }
             }
         }
-        generateRandomRadiox(3);
+        resetPositions();
+        generateRadios();
     }
 
-    private void generateRandomRadiox(int count) {
+    private Enemy1 createEnemy(int x, int y, Enemy1.Role role, int releaseDelay) {
+        Enemy1 enemy = new Enemy1(enemyUpImage, enemyDownImage, enemyLeftImage, enemyRightImage,
+                x, y, tileSize, tileSize, walls, tileSize);
+        enemy.setRole(role);
+        enemy.setReleaseDelay(releaseDelay);
+        return enemy;
+    }
+
+    /**
+     * Meletakkan radio di jalur terbuka yang tersebar: tidak di titik awal, pintu keluar,
+     * kotak awal musuh, maupun terlalu dekat dengan pemain atau radio lain.
+     */
+    private void generateRadios() {
         radiox.clear();
 
-        // Radio tidak boleh muncul di titik awal pemain maupun di titik finish
-        Block startTile = new Block(null, 0, finishY, tileSize, tileSize);
-        Block finishTile = new Block(null, finishX, finishY, tileSize, tileSize);
+        List<int[]> candidates = new ArrayList<>();
+        int startCol = 0;
+        int startRow = finishY / tileSize;
+        for (int r = 0; r < rowCount; r++) {
+            for (int c = 0; c < columnCount; c++) {
+                if (wallGrid[r][c] || isEnemyStartTile(c, r) || (c == finishX / tileSize && r == startRow)) {
+                    continue;
+                }
+                candidates.add(new int[]{c, r});
+            }
+        }
+        Collections.shuffle(candidates, random);
 
-        int tries = 0;
-        while (radiox.size() < count && tries < 1000) {
-            int c = random.nextInt(columnCount);
-            int r = random.nextInt(rowCount);
-            int x = c * tileSize;
-            int y = r * tileSize;
-
-            Block radioBlock = new Block(RadioImage, x, y, tileSize, tileSize);
-            boolean valid = true;
-
-            // Cek tabrakan dengan dinding
-            for (Block wall : walls) {
-                if (Block.collision(radioBlock, wall)) {
-                    valid = false;
+        for (int minGap = 5; minGap >= 0 && radiox.size() < RADIO_COUNT; minGap--) {
+            int startDistance = Math.max(minGap + 1, 6);
+            for (int[] tile : candidates) {
+                if (radiox.size() >= RADIO_COUNT) {
                     break;
                 }
-            }
-
-            // Cek titik awal pemain dan titik finish
-            if (Block.collision(radioBlock, startTile) || Block.collision(radioBlock, finishTile)) {
-                valid = false;
-            }
-
-            // Cek tabrakan dengan player
-            if (player != null && Block.collision(radioBlock, player)) {
-                valid = false;
-            }
-
-            // Cek tabrakan dengan musuh
-            for (Enemy1 enemy : enemies) {
-                if (Block.collision(radioBlock, enemy)) {
-                    valid = false;
-                    break;
+                if (Math.abs(tile[0] - startCol) + Math.abs(tile[1] - startRow) < startDistance) {
+                    continue;
+                }
+                boolean farEnough = true;
+                for (Block other : radiox) {
+                    int distance = Math.abs(tile[0] - other.x / tileSize) + Math.abs(tile[1] - other.y / tileSize);
+                    if (distance < minGap) {
+                        farEnough = false;
+                        break;
+                    }
+                }
+                if (farEnough && !alreadyHasRadio(tile[0], tile[1])) {
+                    radiox.add(new Block(radioImage, tile[0] * tileSize, tile[1] * tileSize, tileSize, tileSize));
                 }
             }
-
-            if (valid) {
-                radiox.add(radioBlock);
-            }
-
-            tries++;
         }
     }
+
+    private boolean alreadyHasRadio(int col, int row) {
+        for (Block block : radiox) {
+            if (block.x / tileSize == col && block.y / tileSize == row) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isEnemyStartTile(int col, int row) {
+        for (Enemy1 enemy : enemies) {
+            if (enemy.startX / tileSize == col && enemy.startY / tileSize == row) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // ===================== PEMBARUAN PERMAINAN =====================
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        int steps = clock.consume();
+        for (int i = 0; i < steps && gameLoop.isRunning(); i++) {
+            update();
+        }
+        if (steps > 0) {
+            repaint();
+        }
+    }
+
+    private void update() {
+        frame++;
+        updateEffects();
+
+        switch (state) {
+            case INTRO ->
+                updateIntro();
+            case PLAYING ->
+                updatePlaying();
+            case ESCAPING ->
+                updateEscaping();
+            case MISSION_TEXT ->
+                updateMissionText();
+            default -> {
+            }
+        }
+    }
+
+    private void updateEffects() {
+        if (bannerTimer > 0) {
+            bannerTimer--;
+        }
+        if (hitFlash > 0) {
+            hitFlash--;
+        }
+        if (exitHintCooldown > 0) {
+            exitHintCooldown--;
+        }
+        floatingTexts.removeIf(t -> --t.life <= 0);
+        for (FloatingText text : floatingTexts) {
+            text.y -= 0.7f;
+        }
+    }
+
+    private void updateIntro() {
+        startMessageTick++;
+        if (startMessageIndex < startMessage.length()) {
+            if (startMessageTick >= 2) {
+                startMessageTick = 0;
+                displayedStartMessage += startMessage.charAt(startMessageIndex);
+                startMessageIndex++;
+            }
+        } else if (++messageHoldCounter >= messageHoldFrames) {
+            finishIntro();
+        }
+    }
+
+    private void finishIntro() {
+        state = State.PLAYING;
+        showBanner("Gerak: W A S D atau tombol panah", 180);
+    }
+
+    private void updatePlaying() {
+        // 1. Gerak pemain
+        char want = heldDirs.isEmpty() ? 0 : heldDirs.getLast();
+        boolean moved = false;
+        if (want != 0) {
+            playerFacing = want;
+            player.image = imageForDirection(want);
+            moved = movePlayer(want);
+        }
+        if (moved) {
+            player.updateDirection(want);
+            playerStarted = true;
+        } else {
+            player.stopMoving();
+        }
+
+        // 2. Pintu keluar
+        if (player.x >= finishX && Math.abs(player.y - finishY) <= TURN_ASSIST) {
+            if (radio >= 1) {
+                startEscape();
+                return;
+            }
+            if (exitHintCooldown == 0) {
+                showBanner("Ambil minimal 1 radio dulu sebelum keluar!", 150);
+                exitHintCooldown = 150;
+            }
+        }
+
+        // 3. Ambil radio
+        Block picked = null;
+        for (Block r : radiox) {
+            if (Math.hypot(r.x - player.x, r.y - player.y) < 24) {
+                picked = r;
+                break;
+            }
+        }
+        if (picked != null) {
+            radiox.remove(picked);
+            radio++;
+            player.playPickRadioSound();
+            floatingTexts.add(new FloatingText("+1 RADIO", picked.x + offsetX + tileSize / 2f,
+                    picked.y + offsetY, new Color(255, 230, 120), 70));
+            if (radio == 1) {
+                showBanner("Radio didapat! Cari pintu keluar di sisi kanan peta", 200);
+            } else {
+                showBanner("Radio: " + radio, 90);
+            }
+        }
+
+        // 4. Musuh
+        if (playerStarted) {
+            enemyClock++;
+            for (Enemy1 enemy : enemies) {
+                if (enemyClock >= enemy.getReleaseDelay()) {
+                    int[] target = targetFor(enemy);
+                    enemy.update(wallGrid, target[0], target[1]);
+                }
+            }
+        }
+
+        // 5. Tertangkap
+        if (invulnerable > 0) {
+            invulnerable--;
+        } else {
+            for (Enemy1 enemy : enemies) {
+                if (overlaps(player, enemy, 8)) {
+                    onCaught();
+                    return;
+                }
+            }
+        }
+
+        updateDanger();
+    }
+
+    /** Sasaran tiap musuh sesuai perannya; keputusan arah diambil di Enemy1. */
+    private int[] targetFor(Enemy1 enemy) {
+        int playerCol = (player.x + tileSize / 2) / tileSize;
+        int playerRow = (player.y + tileSize / 2) / tileSize;
+        int enemyCol = (enemy.x + tileSize / 2) / tileSize;
+        int enemyRow = (enemy.y + tileSize / 2) / tileSize;
+        int distance = Math.abs(playerCol - enemyCol) + Math.abs(playerRow - enemyRow);
+
+        switch (enemy.getRole()) {
+            case AMBUSHER -> {
+                int ahead = 3;
+                int col = Math.max(0, Math.min(columnCount - 1, playerCol + dxOf(playerFacing) * ahead));
+                int row = Math.max(0, Math.min(rowCount - 1, playerRow + dyOf(playerFacing) * ahead));
+                return new int[]{col, row};
+            }
+            case GUARD -> {
+                if (radio >= 1) {
+                    return new int[]{finishX / tileSize, finishY / tileSize};
+                }
+                if (distance < 6 || radiox.isEmpty()) {
+                    return new int[]{playerCol, playerRow};
+                }
+                Block nearest = radiox.get(0);
+                int best = Integer.MAX_VALUE;
+                for (Block r : radiox) {
+                    int d = Math.abs(r.x / tileSize - enemyCol) + Math.abs(r.y / tileSize - enemyRow);
+                    if (d < best) {
+                        best = d;
+                        nearest = r;
+                    }
+                }
+                return new int[]{nearest.x / tileSize, nearest.y / tileSize};
+            }
+            case FLANKER -> {
+                if (distance > 8) {
+                    return new int[]{playerCol, playerRow};
+                }
+                return new int[]{1, rowCount - 2};
+            }
+            default -> {
+                return new int[]{playerCol, playerRow};
+            }
+        }
+    }
+
+    private void updateDanger() {
+        float nearest = Float.MAX_VALUE;
+        for (Enemy1 enemy : enemies) {
+            float d = (float) Math.hypot(enemy.x - player.x, enemy.y - player.y);
+            nearest = Math.min(nearest, d);
+        }
+        float target = nearest < DANGER_RANGE ? 1f - nearest / DANGER_RANGE : 0f;
+        danger += (target - danger) * 0.15f;
+    }
+
+    private void onCaught() {
+        player.setLives(player.getLives() - 1);
+        player.playHurtSound();
+        player.stopMoving();
+        hitFlash = 40;
+        danger = 0f;
+
+        if (player.getLives() <= 0) {
+            state = State.GAME_OVER;
+            restartButton.setVisible(true);
+            gameLoop.stop();
+            repaint();
+            return;
+        }
+
+        showBanner("Tertangkap! Nyawa tersisa: " + player.getLives(), 150);
+        floatingTexts.add(new FloatingText("-1 NYAWA", player.x + offsetX + tileSize / 2f,
+                player.y + offsetY, new Color(255, 110, 110), 70));
+        respawn();
+    }
+
+    /** Pemain kembali ke titik awal; musuh kembali ke kotak awal dan menunggu pemain bergerak. */
+    private void respawn() {
+        resetPositions();
+        invulnerable = INVULNERABLE_FRAMES;
+        playerStarted = false;
+        enemyClock = 0;
+    }
+
+    private void startEscape() {
+        state = State.ESCAPING;
+        autoWalkProgress = 0;
+        player.stopMoving();
+        player.image = playerRightImage;
+        showBanner("Berhasil keluar!", 120);
+    }
+
+    private void updateEscaping() {
+        overlayAlpha = Math.max(0f, overlayAlpha - 0.02f);
+        player.x += autoWalkSpeed;
+        autoWalkProgress += autoWalkSpeed;
+
+        if (autoWalkProgress >= autoWalkDistance) {
+            overlayAlpha = 1.0f;
+            notificationAlpha = 0;
+            bannerTimer = 0;
+            state = State.MISSION_TEXT;
+        }
+    }
+
+    private void updateMissionText() {
+        if (notificationAlpha < 255) {
+            notificationAlpha = Math.min(255, notificationAlpha + 3);
+        }
+        if (notificationAlpha >= 255) {
+            state = State.WON;
+            nextButton.setVisible(true);
+            gameLoop.stop();
+            repaint();
+
+            if (onWin != null) {
+                // Jeda sebentar supaya pemain sempat membaca pesan misi selesai
+                Timer t = new Timer(400, e -> onWin.run());
+                t.setRepeats(false);
+                t.start();
+            }
+        }
+    }
+
+    // ===================== GERAK PEMAIN =====================
+
+    /**
+     * Menggerakkan pemain satu langkah. Lorong selebar tepat satu tile, jadi di persimpangan
+     * pemain yang meleset beberapa piksel dibantu bergeser ke jalur yang sejajar.
+     */
+    private boolean movePlayer(char dir) {
+        int dx = dxOf(dir);
+        int dy = dyOf(dir);
+        int step = Player1.SPEED;
+
+        if (isFree(player.x + dx * step, player.y + dy * step)) {
+            player.x += dx * step;
+            player.y += dy * step;
+            return true;
+        }
+
+        // Bantuan berbelok: sejajarkan sumbu tegak lurus bila jalur sebenarnya terbuka
+        if (dx != 0) {
+            int aligned = alignToTile(player.y);
+            int offset = aligned - player.y;
+            if (offset != 0 && Math.abs(offset) <= TURN_ASSIST && isFree(player.x + dx * step, aligned)) {
+                player.y += Integer.signum(offset) * Math.min(Math.abs(offset), step);
+                return true;
+            }
+        } else {
+            int aligned = alignToTile(player.x);
+            int offset = aligned - player.x;
+            if (offset != 0 && Math.abs(offset) <= TURN_ASSIST && isFree(aligned, player.y + dy * step)) {
+                player.x += Integer.signum(offset) * Math.min(Math.abs(offset), step);
+                return true;
+            }
+        }
+
+        // Rapatkan ke dinding dengan langkah yang lebih kecil
+        for (int s = step - 1; s >= 1; s--) {
+            if (isFree(player.x + dx * s, player.y + dy * s)) {
+                player.x += dx * s;
+                player.y += dy * s;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private int alignToTile(int value) {
+        return Math.round(value / (float) tileSize) * tileSize;
+    }
+
+    private boolean isFree(int px, int py) {
+        if (px < 0 || py < 0) {
+            return false;
+        }
+        int firstCol = px / tileSize;
+        int lastCol = (px + tileSize - 1) / tileSize;
+        int firstRow = py / tileSize;
+        int lastRow = (py + tileSize - 1) / tileSize;
+        if (lastCol >= columnCount || lastRow >= rowCount) {
+            return false;
+        }
+        for (int r = firstRow; r <= lastRow; r++) {
+            for (int c = firstCol; c <= lastCol; c++) {
+                if (wallGrid[r][c]) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private boolean overlaps(Block a, Block b, int inset) {
+        return a.x + inset < b.x + b.width - inset && a.x + a.width - inset > b.x + inset
+                && a.y + inset < b.y + b.height - inset && a.y + a.height - inset > b.y + inset;
+    }
+
+    private static int dxOf(char dir) {
+        return dir == 'L' ? -1 : dir == 'R' ? 1 : 0;
+    }
+
+    private static int dyOf(char dir) {
+        return dir == 'U' ? -1 : dir == 'D' ? 1 : 0;
+    }
+
+    private Image imageForDirection(char dir) {
+        return switch (dir) {
+            case 'U' ->
+                playerUpImage;
+            case 'D' ->
+                playerDownImage;
+            case 'L' ->
+                playerLeftImage;
+            default ->
+                playerRightImage;
+        };
+    }
+
+    private void showBanner(String text, int frames) {
+        bannerText = text;
+        bannerTimer = frames;
+        bannerDuration = Math.max(1, frames);
+    }
+
+    // ===================== PENGGAMBARAN =====================
 
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2d = (Graphics2D) g.create();
 
-        // 1. Gambar background utama game
+        // 1. Latar dan objek peta
         g2d.drawImage(backgroundImage, 0, 0, frameWidth, frameHeight, null);
-
-        // 2. Gambar map dan objek lain
         drawMapAndObjects(g2d);
 
-        // 3. Efek spotlight / overlay gelap saat misi belum selesai
+        boolean missionComplete = state == State.MISSION_TEXT || state == State.WON;
+
+        // 2. Spotlight gelap selama misi berjalan
         if (!missionComplete) {
             int centerX = player.x + offsetX + player.width / 2;
             int centerY = player.y + offsetY + player.height / 2;
@@ -371,21 +771,13 @@ public class Gamepanel1 extends JPanel implements KeyListener, ActionListener {
                 new Color(0, 0, 0, 0),
                 new Color(0, 0, 0, (int) (overlayAlpha * 255))
             };
-            RadialGradientPaint rgp = new RadialGradientPaint(
-                    new Point(centerX, centerY),
-                    spotlightRadius,
-                    dist,
-                    colors,
-                    MultipleGradientPaint.CycleMethod.NO_CYCLE
-            );
-            g2d.setPaint(rgp);
+            g2d.setPaint(new RadialGradientPaint(new Point(centerX, centerY), spotlightRadius,
+                    dist, colors, MultipleGradientPaint.CycleMethod.NO_CYCLE));
             g2d.fillRect(0, 0, frameWidth, frameHeight);
         } else {
-            // Overlay gelap penuh untuk efek mission complete
             g2d.setColor(new Color(0, 0, 0, notificationAlpha));
             g2d.fillRect(0, 0, frameWidth, frameHeight);
 
-            // Pesan misi selesai
             g2d.setColor(new Color(255, 255, 255, notificationAlpha));
             g2d.setFont(new Font("Arial", Font.BOLD, 36));
             String message = "MISI SELESAI, BERHASIL KABUR DARI PENJAJAH";
@@ -393,12 +785,102 @@ public class Gamepanel1 extends JPanel implements KeyListener, ActionListener {
             g2d.drawString(message, (frameWidth - strWidth) / 2, frameHeight / 2);
         }
 
-        // 4. Gambar player di atas map
-        if (player != null) {
+        // 3. Pemain di atas peta (berkedip saat kebal)
+        boolean visible = invulnerable == 0 || (invulnerable / 6) % 2 == 0;
+        if (visible) {
             g2d.drawImage(player.image, player.x + offsetX, player.y + offsetY, player.width, player.height, null);
         }
 
-        // 5. Gambar peta kecil (mini map) di pojok kanan atas
+        // 4. Peringatan musuh dekat dan panah pintu keluar (di atas kegelapan)
+        drawDangerVignette(g2d);
+        drawExitHint(g2d);
+
+        // 5. Peta kecil
+        drawMiniMap(g2d);
+
+        // 6. HUD, pesan, dan efek
+        drawHud(g2d);
+        drawFloatingTexts(g2d);
+        drawBanner(g2d);
+
+        if (hitFlash > 0) {
+            g2d.setColor(new Color(220, 30, 30, Math.min(150, hitFlash * 5)));
+            g2d.fillRect(0, 0, frameWidth, frameHeight);
+        }
+
+        if (state == State.GAME_OVER) {
+            g2d.setColor(new Color(0, 0, 0, 180));
+            g2d.fillRect(0, 0, frameWidth, frameHeight);
+
+            g2d.setColor(Color.WHITE);
+            g2d.setFont(new Font("Arial", Font.BOLD, 36));
+            String gameOverMsg = "TERTANGKAP...";
+            int w = g2d.getFontMetrics().stringWidth(gameOverMsg);
+            g2d.drawString(gameOverMsg, (frameWidth - w) / 2, frameHeight / 2 - 20);
+
+            g2d.setFont(new Font("Arial", Font.BOLD, 24));
+            String subMsg = "PERLARIAN BUNG TOMO GAGAL";
+            int w2 = g2d.getFontMetrics().stringWidth(subMsg);
+            g2d.drawString(subMsg, (frameWidth - w2) / 2, frameHeight / 2 + 20);
+        }
+
+        // 7. Pesan pengantar paling atas
+        if (state == State.INTRO) {
+            g2d.setFont(new Font("Arial", Font.BOLD, 28));
+            int msgWidth = g2d.getFontMetrics().stringWidth(displayedStartMessage);
+            int x = (frameWidth - msgWidth) / 2;
+            int y = frameHeight / 2;
+            g2d.setColor(new Color(0, 0, 0, 200));
+            g2d.drawString(displayedStartMessage, x + 2, y + 2);
+            g2d.setColor(Color.WHITE);
+            g2d.drawString(displayedStartMessage, x, y);
+        }
+
+        g2d.dispose();
+    }
+
+    private void drawMapAndObjects(Graphics2D g2d) {
+        for (Enemy1 enemy : enemies) {
+            g2d.drawImage(enemy.image, enemy.x + offsetX, enemy.y + offsetY, enemy.width, enemy.height, null);
+        }
+
+        for (Block wall : walls) {
+            g2d.drawImage(wall.image, wall.x + offsetX, wall.y + offsetY, wall.width, wall.height, null);
+        }
+
+        for (Block radioObj : radiox) {
+            int bob = (int) Math.round(Math.sin(frame * 0.1 + radioObj.x) * 2);
+            g2d.drawImage(radioObj.image, radioObj.x + offsetX, radioObj.y + offsetY + bob,
+                    radioObj.width, radioObj.height, null);
+        }
+    }
+
+    private void drawDangerVignette(Graphics2D g2d) {
+        if (danger <= 0.02f || state != State.PLAYING) {
+            return;
+        }
+        float[] dist = {0.55f, 1.0f};
+        Color[] colors = {new Color(200, 0, 0, 0), new Color(200, 0, 0, (int) (danger * 130))};
+        g2d.setPaint(new RadialGradientPaint(new Point(frameWidth / 2, frameHeight / 2), frameWidth * 0.65f,
+                dist, colors, MultipleGradientPaint.CycleMethod.NO_CYCLE));
+        g2d.fillRect(0, 0, frameWidth, frameHeight);
+    }
+
+    private void drawExitHint(Graphics2D g2d) {
+        if (state != State.PLAYING || radio < 1) {
+            return;
+        }
+        int pulse = (int) (Math.sin(frame * 0.15) * 5);
+        int x = offsetX + boardWidth + 8 + pulse;
+        int y = offsetY + finishY + tileSize / 2;
+        g2d.setColor(new Color(120, 255, 140));
+        Polygon arrow = new Polygon(new int[]{x, x + 18, x}, new int[]{y - 12, y, y + 12}, 3);
+        g2d.fillPolygon(arrow);
+        g2d.setFont(new Font("Arial", Font.BOLD, 14));
+        g2d.drawString("KELUAR", x - 8, y - 18);
+    }
+
+    private void drawMiniMap(Graphics2D g2d) {
         int mapWidth = 200;
         int mapHeight = 200;
         int mapX = frameWidth - mapWidth - 10;
@@ -407,354 +889,144 @@ public class Gamepanel1 extends JPanel implements KeyListener, ActionListener {
         g2d.drawImage(mapsImage, mapX, mapY, mapWidth, mapHeight, null);
         g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 1.0f));
 
-        // 6. Tampilkan jumlah radio yang sudah diambil
-        g2d.setColor(Color.WHITE);
+        // Posisi pemain di peta kecil
+        int dotX = mapX + (int) ((player.x + tileSize / 2f) / boardWidth * mapWidth);
+        int dotY = mapY + (int) ((player.y + tileSize / 2f) / boardHeight * mapHeight);
+        boolean blink = (frame / 15) % 2 == 0;
+        g2d.setColor(blink ? new Color(255, 220, 60) : new Color(255, 120, 0));
+        g2d.fillOval(dotX - 4, dotY - 4, 8, 8);
+        g2d.setColor(Color.BLACK);
+        g2d.drawOval(dotX - 4, dotY - 4, 8, 8);
+    }
+
+    private void drawHud(Graphics2D g2d) {
+        // Nyawa
+        for (int i = 0; i < Player1.MAX_LIVES; i++) {
+            drawHeart(g2d, 20 + i * 30, 18, 22, i < player.getLives());
+        }
+
+        // Jumlah radio
         g2d.setFont(new Font("Arial", Font.BOLD, 20));
-        String radioText = "Radio = " + radio;
-        int xRadio = 20;
-        int yRadio = 40;
-        g2d.drawString(radioText, xRadio, yRadio);
-
-        if (showGameOverScreen) {
-            // Latar semi-transparan gelap
-            g2d.setColor(new Color(0, 0, 0, 180));
-            g2d.fillRect(0, 0, frameWidth, frameHeight);
-
-            // Judul "TERTANGKAP..." dengan warna coklat tua
-            g2d.setColor(new Color(255, 255, 255)); // SaddleBrown
-            g2d.setFont(new Font("Arial", Font.BOLD, 36));
-            String gameOverMsg = "TERTANGKAP...";
-            int w = g2d.getFontMetrics().stringWidth(gameOverMsg);
-            g2d.drawString(gameOverMsg, (frameWidth - w) / 2, frameHeight / 2 - 20);
-
-            // Subjudul "PERLARIAN BUNG TOMO GAGAL" dengan warna coklat muda
-            g2d.setColor(new Color(255, 255, 255)); // SaddleBrown
-            g2d.setFont(new Font("Arial", Font.BOLD, 24));
-            String subMsg = "PERLARIAN BUNG TOMO GAGAL";
-            int w2 = g2d.getFontMetrics().stringWidth(subMsg);
-            g2d.drawString(subMsg, (frameWidth - w2) / 2, frameHeight / 2 + 20);
-        }
-
-        // 8. TERAKHIR: Tampilkan pesan overlay (instruksi) DI ATAS SEMUA ELEMEN
-        if (isShowingStartMessage) {
-            g2d.setColor(new Color(255, 255, 255));
-            g2d.setFont(new Font("Arial", Font.BOLD, 28));
-            int msgWidth = g2d.getFontMetrics().stringWidth(displayedStartMessage);
-            int x = (frameWidth - msgWidth) / 2;
-            int y = frameHeight / 2;
-            g2d.drawString(displayedStartMessage, x, y);
-            // Tidak ada return!
-        }
-
-        g2d.dispose();
+        String radioText = radio == 0 ? "Radio: 0  (minimal 1)" : "Radio: " + radio;
+        g2d.setColor(new Color(0, 0, 0, 170));
+        g2d.drawString(radioText, 22, 72);
+        g2d.setColor(radio == 0 ? Color.WHITE : new Color(255, 230, 120));
+        g2d.drawString(radioText, 20, 70);
     }
 
-    private void drawMapAndObjects(Graphics2D g2d) {
-        g2d.drawImage(backgroundImage, 0, 0, frameWidth, frameHeight, null);
-
-        for (Enemy1 enemy : enemies) {
-            g2d.drawImage(enemy.image, enemy.x + offsetX, enemy.y + offsetY, enemy.width, enemy.height, null);
+    private void drawHeart(Graphics2D g2d, int x, int y, int s, boolean filled) {
+        Path2D.Float heart = new Path2D.Float();
+        heart.moveTo(x + s / 2f, y + s);
+        heart.curveTo(x - s * 0.25f, y + s * 0.45f, x + s * 0.05f, y - s * 0.2f, x + s / 2f, y + s * 0.28f);
+        heart.curveTo(x + s * 0.95f, y - s * 0.2f, x + s * 1.25f, y + s * 0.45f, x + s / 2f, y + s);
+        heart.closePath();
+        if (filled) {
+            g2d.setColor(new Color(225, 40, 50));
+            g2d.fill(heart);
+        } else {
+            g2d.setColor(new Color(60, 60, 60, 190));
+            g2d.fill(heart);
         }
-
-        for (Block wall : walls) {
-            if (wall.image != null) {
-                g2d.drawImage(wall.image, wall.x + offsetX, wall.y + offsetY, wall.width, wall.height, null);
-            } else {
-                g2d.setColor(Color.BLUE);
-                g2d.fillRect(wall.x + offsetX, wall.y + offsetY, wall.width, wall.height);
-            }
-        }
-
-        for (Block radioObj : radiox) {
-            if (radioObj.image != null) {
-                g2d.drawImage(radioObj.image, radioObj.x + offsetX, radioObj.y + offsetY, radioObj.width, radioObj.height, null);
-            } else {
-                g2d.setColor(Color.WHITE);
-                g2d.fillRect(radioObj.x + offsetX, radioObj.y + offsetY, radioObj.width, radioObj.height);
-            }
-        }
-
+        g2d.setColor(Color.WHITE);
+        g2d.setStroke(new BasicStroke(1.5f));
+        g2d.draw(heart);
     }
+
+    private void drawFloatingTexts(Graphics2D g2d) {
+        g2d.setFont(new Font("Arial", Font.BOLD, 18));
+        for (FloatingText text : floatingTexts) {
+            int alpha = Math.max(0, Math.min(255, text.life * 255 / text.maxLife));
+            int width = g2d.getFontMetrics().stringWidth(text.text);
+            g2d.setColor(new Color(0, 0, 0, alpha));
+            g2d.drawString(text.text, text.x - width / 2f + 1, text.y + 1);
+            g2d.setColor(new Color(text.color.getRed(), text.color.getGreen(), text.color.getBlue(), alpha));
+            g2d.drawString(text.text, text.x - width / 2f, text.y);
+        }
+    }
+
+    private void drawBanner(Graphics2D g2d) {
+        if (bannerTimer <= 0 || bannerText.isEmpty()) {
+            return;
+        }
+        float fade = Math.min(1f, Math.min(bannerTimer, bannerDuration - bannerTimer + 10) / 15f);
+        int alpha = (int) (Math.max(0f, fade) * 255);
+        g2d.setFont(new Font("Arial", Font.BOLD, 22));
+        FontMetrics fm = g2d.getFontMetrics();
+        int w = fm.stringWidth(bannerText);
+        int boxW = w + 40;
+        int boxH = 40;
+        int x = (frameWidth - boxW) / 2;
+        int y = frameHeight - 70;
+        g2d.setColor(new Color(0, 0, 0, alpha * 170 / 255));
+        g2d.fillRoundRect(x, y, boxW, boxH, 16, 16);
+        g2d.setColor(new Color(255, 255, 255, alpha));
+        g2d.drawString(bannerText, x + 20, y + 27);
+    }
+
+    // ===================== API PUBLIK =====================
 
     public void setOnWin(Runnable onWin) {
         this.onWin = onWin;
     }
 
-    @Override
-    public void actionPerformed(ActionEvent e) {
-        updateGame();
-        repaint();
-    }
-
-    private void updateGame() {
-        if (player == null) {
-            return;
-        }
-
-        // Efek teks pesan mulai game
-        if (isShowingStartMessage) {
-            startMessageDelayCounter++;
-            if (startMessageDelayCounter >= startMessageDelay) {
-                startMessageDelayCounter = 0;
-                if (startMessageIndex < startMessage.length()) {
-                    displayedStartMessage += startMessage.charAt(startMessageIndex);
-                    startMessageIndex++;
-                } else {
-                    // Tambahkan jeda 2 detik (40 frame) setelah semua teks tampil
-                    messageDisplayHoldCounter++;
-                    if (messageDisplayHoldCounter >= messageDisplayHoldFrames) {
-                        isShowingStartMessage = false;
-                    }
-                }
-            }
-            repaint();
-            return;  // hentikan update lain selama teks masih muncul
-        }
-
-        if (showGameOverScreen) {
-            return;
-        }
-
-        // Kode lainnya untuk gameplay...
-        // Jika player sampai finish tapi belum ambil radio (radio == 0)
-        if (player.x >= finishX && player.y >= finishY && radio == 0) {
-            // Batasi player agar tidak melewati garis finish (kecuali radio sudah diambil)
-            if (player.x > finishX) {
-                player.x = finishX;
-            }
-            if (player.y > finishY) {
-                player.y = finishY;
-            }
-            // Tidak return supaya player masih bisa bergerak di sisa frame lain
-        }
-
-        // Mulai proses finish jika radio sudah diambil minimal 1
-        if (!startedBrightTransition && player.x >= finishX && player.y >= finishY && radio >= 1) {
-            startedBrightTransition = true;
-        }
-
-        // Transisi terang menurun
-        if (startedBrightTransition && overlayAlpha > 0f) {
-            overlayAlpha -= 0.05f;
-            if (overlayAlpha < 0f) {
-                overlayAlpha = 0f;
-            }
-        }
-
-        // AUTO WALK
-        if (isAutoWalking) {
-            player.velocityX = autoWalkSpeed;
-            player.velocityY = 0;
-            player.x += player.velocityX;
-            autoWalkProgress += player.velocityX;
-
-            if (autoWalkProgress >= autoWalkDistance) {
-                isAutoWalking = false;
-                player.velocityX = 0;
-                player.velocityY = 0;
-                overlayAlpha = 1.0f;  // langsung gelap
-                missionComplete = true;
-                notificationAlpha = 0;
-                isMissionTextFadingIn = true;
-                // REMOVED: SoundPlayer.getInstance().stopBackgroundMusic();
-            }
-            return;
-        }
-
-        // TRANSISI BRIGHT KE MISSION COMPLETE
-        if (isTransitioningToBright) {
-            overlayAlpha -= 0.08f;
-            if (overlayAlpha <= 0f) {
-                overlayAlpha = 0f;
-                isTransitioningToBright = false;
-                missionComplete = true;
-                notificationAlpha = 0;
-                isMissionTextFadingIn = true;
-                // Kunci posisi player
-                player.velocityX = 0;
-                player.velocityY = 0;
-                // Return di sini juga untuk pastikan tidak lanjut ke bawah
-                return;
-            }
-            return;
-        }
-
-        // FADING IN TEKS MISSION COMPLETE
-        if (isMissionTextFadingIn) {
-            if (notificationAlpha < 255) {
-                notificationAlpha += 5;
-            } else {
-                notificationAlpha = 255;
-                isMissionTextFadingIn = false;
-                nextButton.setVisible(true);
-                gameLoop.stop();
-
-                // PANGGIL callback kalau ada!
-                if (onWin != null) {
-                    // Delay sebentar supaya user sempat baca pesan misi selesai
-                    Timer t = new Timer(400, e -> onWin.run());
-                    t.setRepeats(false);
-                    t.start();
-                }
-            }
-            repaint();
-            return;
-        }
-
-        int oldX = player.x;
-        int oldY = player.y;
-
-        player.x += player.velocityX;
-        player.y += player.velocityY;
-
-        if (player.x < 0) {
-            player.x = 0;
-        }
-        if (player.y < 0) {
-            player.y = 0;
-        }
-        if (player.y + player.height > frameHeight) {
-            player.y = frameHeight - player.height;
-        }
-
-        // Mulai auto walking saat player sudah finish dan radio >= 1
-        if (player.x >= finishX && player.y >= finishY && !isAutoWalking && !missionComplete && radio >= 1) {
-            isAutoWalking = true;
-            autoWalkProgress = 0;
-            player.updateDirection('R');
-            player.image = playerRightImage;
-            return;
-        }
-
-        // Cek tabrakan dengan dinding
-        for (Block wall : walls) {
-            if (Block.collision(player, wall)) {
-                player.x = oldX;
-                player.y = oldY;
-                break;
-            }
-        }
-
-        for (Enemy1 enemy : enemies) {
-            if (Block.collision(player, enemy)) {
-                player.playHurtSound();              // <-- Panggil suara di sini!
-                radio = 0;
-                showGameOverScreen = true;
-                restartButton.setVisible(true);
-                gameLoop.stop();
-                repaint();
-                return;
-            }
-        }
-
-        // Update posisi musuh
-        for (Enemy1 enemy : enemies) {
-            enemy.x += enemy.velocityX;
-            enemy.y += enemy.velocityY;
-
-            boolean collided = false;
-            for (Block wall : walls) {
-                if (Block.collision(enemy, wall)) {
-                    collided = true;
-                    break;
-                }
-            }
-
-            if (collided || enemy.x <= 0 || enemy.x + enemy.width >= boardWidth
-                    || enemy.y <= 0 || enemy.y + enemy.height >= boardHeight) {
-                enemy.x -= enemy.velocityX;
-                enemy.y -= enemy.velocityY;
-                // Rapatkan ke grid supaya musuh bisa berbelok di persimpangan
-                enemy.x = Math.round((float) enemy.x / tileSize) * tileSize;
-                enemy.y = Math.round((float) enemy.y / tileSize) * tileSize;
-                enemy.updateDirection(directions[random.nextInt(directions.length)]);
-            }
-        }
-
-        // Ambil radio jika bersentuhan dengan player
-        Block foundRadio = null;
-        for (Block r : radiox) {
-            if (Block.collision(player, r)) {
-                foundRadio = r;
-                radio += 1;
-                player.playPickRadioSound();
-                break;
-            }
-        }
-        if (foundRadio != null) {
-            radiox.remove(foundRadio);
-        }
-
-        // Reload map jika radio habis dan kurang dari 1 radio sudah diambil
-        if (radiox.isEmpty() && radio < 1) {
-            loadMap();
-            resetPositions();
-        }
-    }
-
     public void restartGame() {
+        state = State.PLAYING;
         radio = 0;
-        missionComplete = false;
-        showGameOverScreen = false;
         notificationAlpha = 0;
-        isTransitioningToBright = false;
-        isMissionTextFadingIn = false;
         overlayAlpha = 1.0f;
-        isAutoWalking = false;
         autoWalkProgress = 0;
+        invulnerable = 0;
+        enemyClock = 0;
+        playerStarted = false;
+        danger = 0f;
+        hitFlash = 0;
+        bannerTimer = 0;
+        floatingTexts.clear();
+        heldDirs.clear();
         restartButton.setVisible(false);
         nextButton.setVisible(false);
         loadMap();
-        resetPositions();
+        player.setLives(Player1.MAX_LIVES);
         repaint();
+        clock.reset();
         gameLoop.start();
+    }
+
+    // ===================== INPUT =====================
+
+    private static char directionOf(int keyCode) {
+        return switch (keyCode) {
+            case KeyEvent.VK_W, KeyEvent.VK_UP ->
+                'U';
+            case KeyEvent.VK_S, KeyEvent.VK_DOWN ->
+                'D';
+            case KeyEvent.VK_A, KeyEvent.VK_LEFT ->
+                'L';
+            case KeyEvent.VK_D, KeyEvent.VK_RIGHT ->
+                'R';
+            default ->
+                0;
+        };
     }
 
     @Override
     public void keyPressed(KeyEvent e) {
-        if (player == null) {
-            return;
+        if (state == State.INTRO) {
+            finishIntro(); // tombol apa pun melewati teks pengantar
         }
-        if (isTransitioningToBright || missionComplete || isAutoWalking) {
-            return;
+        char dir = directionOf(e.getKeyCode());
+        if (dir != 0) {
+            heldDirs.remove(Character.valueOf(dir));
+            heldDirs.addLast(dir);
         }
-
-        player.velocityX = 0;
-        player.velocityY = 0;
-
-        switch (e.getKeyCode()) {
-            case KeyEvent.VK_W, KeyEvent.VK_UP -> {
-                player.updateDirection('U');
-                player.image = playerUpImage;
-            }
-            case KeyEvent.VK_S, KeyEvent.VK_DOWN -> {
-                player.updateDirection('D');
-                player.image = playerDownImage;
-            }
-            case KeyEvent.VK_A, KeyEvent.VK_LEFT -> {
-                player.updateDirection('L');
-                player.image = playerLeftImage;
-            }
-            case KeyEvent.VK_D, KeyEvent.VK_RIGHT -> {
-                player.updateDirection('R');
-                player.image = playerRightImage;
-            }
-        }
-
     }
 
     @Override
     public void keyReleased(KeyEvent e) {
-        if (player == null) {
-            return;
+        char dir = directionOf(e.getKeyCode());
+        if (dir != 0) {
+            heldDirs.remove(Character.valueOf(dir));
         }
-        if (isTransitioningToBright || missionComplete || isAutoWalking) {
-            return;
-        }
-
-        player.stopMoving();
-        player.velocityX = 0;
-        player.velocityY = 0;
     }
 
     @Override
@@ -768,15 +1040,15 @@ public class Gamepanel1 extends JPanel implements KeyListener, ActionListener {
             player.y = finishY;
             player.velocityX = 0;
             player.velocityY = 0;
+            player.image = playerRightImage;
+            playerFacing = 'R';
         }
 
         for (Enemy1 enemy : enemies) {
             enemy.reset();
-            enemy.updateDirection(randomDirection());
+            enemy.updateDirection('U');
+            enemy.velocityX = 0;
+            enemy.velocityY = 0;
         }
-    }
-
-    private char randomDirection() {
-        return directions[new Random().nextInt(directions.length)];
     }
 }

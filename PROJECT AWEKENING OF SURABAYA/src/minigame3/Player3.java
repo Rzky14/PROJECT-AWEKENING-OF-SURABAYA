@@ -2,7 +2,7 @@ package minigame3;
 
 import audio.SoundPlayer;
 import java.awt.*;
-import javax.swing.ImageIcon;
+import util.Assets;
 
 public class Player3 {
 
@@ -10,7 +10,7 @@ public class Player3 {
 
     int x, y;
     int dx;
-    int speed = 5;
+    int speed = 6;
     int health = 100;
     boolean isAlive = true;
 
@@ -18,10 +18,15 @@ public class Player3 {
 
     private static final int PLAYER_WIDTH = 140;
     private static final int PLAYER_HEIGHT = 160;
-    private static final Image idleImage = loadImage("asset/player/player1.png");
-    private static final Image jumpImage = loadImage("asset/player/playerloncat.png");
-    private static final Image image1 = loadImage("asset/player/player1.png");
-    private static final Image image2 = loadImage("asset/player/player2.png");
+    public static final int MAX_HEALTH = 100;
+    public static final int MAX_X = 1240;                 // batas kanan dunia (tepat di sisi layar saat kamera di ujung)
+    private static final int INVULNERABLE_FRAMES = 50;     // kebal singkat setelah terkena serangan
+    private static final int JUMP_BUFFER_FRAMES = 8;       // lompat yang ditekan sesaat sebelum mendarat tetap dihitung
+
+    private static final Image idleImage = Assets.image("asset/player/player1.png", PLAYER_WIDTH, PLAYER_HEIGHT);
+    private static final Image jumpImage = Assets.image("asset/player/playerloncat.png", PLAYER_WIDTH, PLAYER_HEIGHT);
+    private static final Image image1 = idleImage;
+    private static final Image image2 = Assets.image("asset/player/player2.png", PLAYER_WIDTH, PLAYER_HEIGHT);
 
     private static final Image[] walkRightImages = new Image[]{
         image2, image1, image2, image1, image2, image1
@@ -30,20 +35,19 @@ public class Player3 {
         image1, image2, image1, image2, image1, image2
     };
 
-    private static Image loadImage(String path) {
-        return new ImageIcon(path).getImage().getScaledInstance(PLAYER_WIDTH, PLAYER_HEIGHT, Image.SCALE_SMOOTH);
-    }
-
     Image currentImage = idleImage;
 
     int animationFrame = 0;
     int animationCounter = 0;
-    int animationSpeed = 10;
+    int animationSpeed = 8;
 
     boolean jumping = false;
-    int jumpVelocity = 0;
-    final int gravity = 2;
-    final int jumpStrength = 20;
+    private double positionY;
+    private double jumpVelocity = 0;
+    private int jumpBuffer = 0;
+    private int invulnerable = 0;
+    final double gravity = 0.9;
+    final double jumpStrength = 19;
     final int groundY = 470;
     final int topLimit = 15;
     final int bottomLimit = groundY;
@@ -59,6 +63,16 @@ public class Player3 {
     public Player3(int startX, int startY) {
         x = startX;
         y = startY + 40;
+        positionY = y;
+    }
+
+    /** Area tubuh yang bisa terkena peluru atau tabrakan, lebih kecil dari gambar karena ada ruang kosong. */
+    public Rectangle getHitbox() {
+        return new Rectangle(x + 35, y + 25, 70, 120);
+    }
+
+    public boolean isInvulnerable() {
+        return invulnerable > 0;
     }
 
     public void update() {
@@ -67,6 +81,9 @@ public class Player3 {
             return;
         }
 
+        if (invulnerable > 0) {
+            invulnerable--;
+        }
         if (isHaltedByGame) {
             dx = 0;
         }
@@ -75,22 +92,32 @@ public class Player3 {
         if (x < 0) {
             x = 0;
         }
+        if (x > MAX_X) {
+            x = MAX_X;
+        }
 
         if (jumping) {
-            y -= jumpVelocity;
+            positionY -= jumpVelocity;
             jumpVelocity -= gravity;
 
-            if (y <= topLimit) {
-                y = topLimit;
-                jumpVelocity = 0;
+            if (positionY <= topLimit) {
+                positionY = topLimit;
+                jumpVelocity = Math.min(jumpVelocity, 0);
             }
 
-            if (y >= bottomLimit) {
-                y = bottomLimit;
+            if (positionY >= bottomLimit) {
+                positionY = bottomLimit;
                 jumping = false;
                 jumpVelocity = 0;
+                if (jumpBuffer > 0 && !isHaltedByGame) {
+                    startJump();
+                }
             }
         }
+        if (jumpBuffer > 0) {
+            jumpBuffer--;
+        }
+        y = (int) Math.round(positionY);
 
         if (jumping) {
             currentImage = jumpImage;
@@ -138,15 +165,16 @@ public class Player3 {
 
     public void draw(Graphics g, int cameraX) {
         if (isAlive) {
-            g.drawImage(currentImage, x - cameraX, y, null);
+            boolean visible = invulnerable == 0 || (invulnerable / 4) % 2 == 0;
+            if (visible) {
+                g.drawImage(currentImage, x - cameraX, y, null);
+            }
             drawHealthBar(g, cameraX);
         } else {
             Graphics2D g2d = (Graphics2D) g;
             g2d.setColor(new Color(0, 0, 0, 180));
             g2d.fillRect(0, 0, 1280, 720);
 
-            // Hapus baris ini:
-            // g2d.drawImage(currentImage, x - cameraX, y, null);
             // Judul "KAMU TELAH MATI!"
             g2d.setFont(new Font("Arial", Font.BOLD, 36));
             g2d.setColor(new Color(255, 255, 255));
@@ -154,7 +182,7 @@ public class Player3 {
             int titleWidth = g2d.getFontMetrics().stringWidth(title);
             g2d.drawString(title, (1280 - titleWidth) / 2, 380);
 
-            // Subjudul "PERLARIAN BUNG TOMO GAGAL"
+            // Subjudul
             g2d.setFont(new Font("Serif", Font.ITALIC, 24));
             String sub = "PERLAWANAN PENJAJAH GAGAL!";
             int subWidth = g2d.getFontMetrics().stringWidth(sub);
@@ -169,16 +197,16 @@ public class Player3 {
     }
 
     private void drawHealthBar(Graphics g, int cameraX) {
-        int barWidth = 50;
-        int barHeight = 5;
-        int fillWidth = (int) ((health / 100.0) * barWidth);
+        int barWidth = 60;
+        int barHeight = 6;
+        int fillWidth = (int) ((health / (double) MAX_HEALTH) * barWidth);
 
-        int barX = x - cameraX + (PLAYER_WIDTH - barWidth) / 3;
-        int barY = y - 20;
+        int barX = x - cameraX + (PLAYER_WIDTH - barWidth) / 2;
+        int barY = y + 10;
 
-        g.setColor(Color.GRAY);
+        g.setColor(new Color(0, 0, 0, 150));
         g.fillRect(barX, barY, barWidth, barHeight);
-        g.setColor(Color.GREEN);
+        g.setColor(health > 30 ? new Color(80, 220, 90) : new Color(230, 70, 60));
         g.fillRect(barX, barY, fillWidth, barHeight);
         g.setColor(Color.BLACK);
         g.drawRect(barX, barY, barWidth, barHeight);
@@ -192,11 +220,51 @@ public class Player3 {
         }
     }
 
-    public void jump() {
-        if (!jumping && !isHaltedByGame) {
-            jumping = true;
-            jumpVelocity = jumpStrength;
+    /** @return true bila lompatan benar-benar dimulai (bukan hanya disimpan di buffer). */
+    public boolean jump() {
+        if (isHaltedByGame || !isAlive) {
+            return false;
         }
+        if (jumping) {
+            jumpBuffer = JUMP_BUFFER_FRAMES;
+            return false;
+        }
+        startJump();
+        return true;
+    }
+
+    private void startJump() {
+        jumping = true;
+        jumpVelocity = jumpStrength;
+        jumpBuffer = 0;
+        soundPlayer.playSound("asset/sounds/jump.wav");
+    }
+
+    /** Tombol lompat dilepas: lompatan dipendekkan agar tinggi lompatan bisa diatur. */
+    public void releaseJump() {
+        if (jumping && jumpVelocity > 6) {
+            jumpVelocity = 6;
+        }
+        jumpBuffer = 0;
+    }
+
+    /**
+     * Menerima kerusakan dengan masa kebal singkat.
+     *
+     * @return true bila kerusakan benar-benar diterima
+     */
+    public boolean hurt(int damage) {
+        if (!isAlive || invulnerable > 0) {
+            return false;
+        }
+        long now = System.currentTimeMillis();
+        if (now - lastHitSoundTime > hitSoundCooldown) {
+            soundPlayer.playSound("asset/sounds/hitHurt.wav");
+            lastHitSoundTime = now;
+        }
+        invulnerable = INVULNERABLE_FRAMES;
+        takeDamage(damage);
+        return true;
     }
 
     public void takeDamage(int damage) {
@@ -212,21 +280,14 @@ public class Player3 {
     public void heal(int amount) {
         if (isAlive) {
             health += amount;
-            if (health > 100) {
-                health = 100;
+            if (health > MAX_HEALTH) {
+                health = MAX_HEALTH;
             }
         }
     }
 
     public void hitByEnemyBullet() {
-        if (isAlive) {
-            long now = System.currentTimeMillis();
-            if (now - lastHitSoundTime > hitSoundCooldown) {
-                soundPlayer.playSound("asset/sounds/hitHurt.wav");
-                lastHitSoundTime = now;
-            }
-            takeDamage(7);
-        }
+        hurt(7);
     }
 
     public void die() {
@@ -249,11 +310,14 @@ public class Player3 {
     public void reset() {
         x = 0;
         y = groundY;
-        health = 100;
+        positionY = groundY;
+        health = MAX_HEALTH;
         isAlive = true;
         dx = 0;
         jumping = false;
         jumpVelocity = 0;
+        jumpBuffer = 0;
+        invulnerable = 0;
         walkSoundPlaying = false;
         lastHitSoundTime = 0;
         lastWalkSoundTime = 0;

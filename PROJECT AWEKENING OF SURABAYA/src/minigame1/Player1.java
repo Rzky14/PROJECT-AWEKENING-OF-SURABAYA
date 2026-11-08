@@ -7,7 +7,10 @@ import java.util.HashSet;
 
 public class Player1 extends Block {
 
-    private int lives = 3;
+    public static final int MAX_LIVES = 3;
+    public static final int SPEED = 3; // piksel per langkah (60 langkah per detik)
+
+    private int lives = MAX_LIVES;
     private int score = 0;
 
     private final SoundPlayer soundPlayer = SoundPlayer.getInstance();
@@ -22,20 +25,18 @@ public class Player1 extends Block {
     }
 
     public void updateDirection(char dir) {
-        int speed = tileSize / 4;
-
         velocityX = 0;
         velocityY = 0;
 
         switch (dir) {
             case 'L' ->
-                velocityX = -speed;
+                velocityX = -SPEED;
             case 'R' ->
-                velocityX = speed;
+                velocityX = SPEED;
             case 'U' ->
-                velocityY = -speed;
+                velocityY = -SPEED;
             case 'D' ->
-                velocityY = speed;
+                velocityY = SPEED;
         }
 
         if (velocityX == 0 && velocityY == 0) {
@@ -78,7 +79,7 @@ public class Player1 extends Block {
     @Override
     public void reset() {
         super.reset();
-        lives = 3;
+        lives = MAX_LIVES;
         score = 0;
         stopWalkSound();
         lastWalkSoundTime = 0;
