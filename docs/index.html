@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#000000">
+    <title>Awakening of Surabaya</title>
+    <link rel="icon" type="image/png" href="assets/img/icon-192.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="assets/img/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+</head>
+<body>
+    <div id="stage">
+        <canvas id="game" width="1280" height="720" aria-label="Awakening of Surabaya"></canvas>
+    </div>
+
+    <div id="touch" hidden>
+        <div id="stick"><div id="knob"></div></div>
+        <div id="dpad">
+            <button type="button" data-action="left" aria-label="Kiri">&#9664;</button>
+            <button type="button" data-action="right" aria-label="Kanan">&#9654;</button>
+        </div>
+        <div id="actions">
+            <button type="button" id="btn-reload" data-action="reload">ISI<br>ULANG</button>
+            <button type="button" id="btn-jump" data-action="up">LOMPAT</button>
+            <button type="button" id="btn-shoot" data-action="shoot">TEMBAK</button>
+        </div>
+    </div>
+
+    <div id="tools">
+        <button type="button" id="btn-sound" aria-label="Suara" title="Suara (M)">&#128266;</button>
+        <button type="button" id="btn-full" aria-label="Layar penuh" title="Layar penuh">&#9974;</button>
+    </div>
+
+    <div id="rotate">
+        <div>
+            <div class="rotate-icon">&#128241;</div>
+            <p>Putar HP Anda ke mode lanskap<br>untuk bermain.</p>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

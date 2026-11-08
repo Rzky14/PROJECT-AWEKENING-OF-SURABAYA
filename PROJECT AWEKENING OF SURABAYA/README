@@ -65,4 +65,23 @@ IV. MENGATASI MASALAH
 * GAME OVER: Jika Anda kalah dalam minigame (HP habis atau tertangkap), opsi "RESTART" akan muncul untuk mencoba kembali minigame tersebut tanpa harus kembali ke menu utama. 
 * PROGRES TERSIMPAN: Jika game tertutup secara tidak sengaja, Anda dapat menggunakan tombol "Lanjutkan" di menu utama untuk kembali ke progres terakhir yang disimpan. 
 
+========================================================================
+V. VERSI WEB (HP DAN KOMPUTER)
+========================================================================
+
+Game ini juga tersedia sebagai versi web yang berjalan di browser, baik di komputer maupun di HP, tanpa instalasi Java.
+
+* Lokasi berkas: folder "docs" di akar repositori (index.html, style.css, js/, assets/).
+* Menjalankan di komputer sendiri: buka terminal di folder "docs", jalankan "python -m http.server 8000", lalu buka http://localhost:8000 di browser. Berkas tidak bisa dibuka langsung dengan klik ganda karena browser memblokir modul JavaScript dari file lokal.
+* Menayangkan lewat GitHub Pages: buka Settings > Pages di repositori, pilih "Deploy from a branch", branch "main", folder "/docs", lalu simpan. Alamat game: https://<nama-pengguna>.github.io/<nama-repositori>/
+* Di HP, putar layar ke mode lanskap. Sentuh layar untuk memulai (diperlukan agar suara bisa menyala). Tombol di pojok layar mengatur suara dan layar penuh.
+
+Kontrol sentuh:
+* Minigame 1: joystick di kiri bawah untuk bergerak.
+* Minigame 2: joystick di kiri bawah untuk bergerak, tombol TEMBAK di kanan bawah (atau ketuk layar) untuk menembak.
+* Minigame 3: tombol panah kiri/kanan di kiri bawah; TEMBAK, LOMPAT, dan ISI ULANG di kanan bawah.
+* Cerita dan menu: ketuk layar sebagai pengganti tombol Spasi.
+
+Progres disimpan di penyimpanan browser (localStorage), sehingga tombol "Lanjutkan" bekerja di perangkat dan browser yang sama. Tombol "Keluar" di versi web menampilkan layar penutup karena halaman web tidak dapat menutup dirinya sendiri.
+
 Selamat bermain dan belajar sejarah dengan "The Awakening of Surabaya"!
